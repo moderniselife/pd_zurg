@@ -146,6 +146,7 @@ def download(element, stream=True, query='', force=False):
                     continue
                 elif not hasattr(response, "id"):
                     ui_print(f'[realdebrid]: unexpected error when adding torrent {release.title}.')
+                    ui_print(f'[realdebrid]: response: {repr(response)}')
                     continue
                 time.sleep(1.0)
                 torrent_id = str(response.id)

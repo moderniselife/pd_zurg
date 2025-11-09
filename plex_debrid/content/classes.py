@@ -632,8 +632,6 @@ class media:
     def isanime(self):
         if 'anime' in self.genre():
             if self.type == "show":
-                if hasattr(self, "anime_count"):
-                    return True
                 self.anime_count = 0
                 if hasattr(self, 'Seasons'):
                     for season in self.Seasons:
@@ -991,6 +989,8 @@ class media:
                             if datetime.datetime.utcnow() > self.offset_airtime[offset]:
                                 return True
                         return False
+                    if not hasattr(self, 'first_aired') or self.first_aired is None:
+                        return False
                     return datetime.datetime.utcnow() > datetime.datetime.strptime(self.first_aired, '%Y-%m-%dT%H:%M:%S.000Z')
                 elif self.type == 'movie':
                     release_date = None
@@ -1000,18 +1000,18 @@ class media:
                         if release.release_type == 'digital' or release.release_type == 'physical' or release.release_type == 'tv':
                             if release_date == None:
                                 release_date = release.release_date
-                            elif datetime.datetime.strptime(release_date, '%Y-%m-%d') > datetime.datetime.strptime(release.release_date, '%Y-%m-%d'):
+                            elif release.release_date is not None and datetime.datetime.strptime(release_date, '%Y-%m-%d') > datetime.datetime.strptime(release.release_date, '%Y-%m-%d'):
                                 release_date = release.release_date
                     # If no release date was found, select the theatrical release date + 2 Month delay
                     if release_date == None:
                         for release in releases:
                             if release_date == None:
                                 release_date = release.release_date
-                            elif datetime.datetime.strptime(release_date, '%Y-%m-%d') > datetime.datetime.strptime(release.release_date, '%Y-%m-%d'):
+                            elif release.release_date is not None and datetime.datetime.strptime(release_date, '%Y-%m-%d') > datetime.datetime.strptime(release.release_date, '%Y-%m-%d'):
                                 release_date = release.release_date
-                        release_date = datetime.datetime.strptime(
-                            release_date, '%Y-%m-%d') + datetime.timedelta(days=60)
-                        release_date = release_date.strftime("%Y-%m-%d")
+                        if release_date is not None:
+                            release_date = datetime.datetime.strptime(release_date, '%Y-%m-%d') + datetime.timedelta(days=60)
+                            release_date = release_date.strftime("%Y-%m-%d")
                     # Get trakt 'Latest HD/4k Releases' Lists to accept early releases
                     match = False
                     if trakt.early_releases == "true":
@@ -1025,6 +1025,8 @@ class media:
                         ui_print("item: '" + self.query() +
                                  "' seems to be released prior to its official release date and will be downloaded.")
                         return True
+                    if release_date is None:
+                        return False
                     if hasattr(self, "offset_airtime"):
                         for offset in self.offset_airtime:
                             if datetime.datetime.utcnow() > (datetime.datetime.strptime(release_date, '%Y-%m-%d') + datetime.timedelta(hours=float(offset))):
@@ -1042,6 +1044,8 @@ class media:
                     return datetime.datetime.utcnow() > datetime.datetime.strptime(release_date, '%Y-%m-%d')
                 elif self.type == 'season':
                     try:
+                        if not hasattr(self, 'first_aired') or self.first_aired is None:
+                            return False
                         if hasattr(self, "offset_airtime") and len(self.offset_airtime) > 0:
                             for offset in self.offset_airtime:
                                 if datetime.datetime.utcnow() > datetime.datetime.strptime(self.first_aired, '%Y-%m-%dT%H:%M:%S.000Z') + datetime.timedelta(hours=float(offset)):
@@ -1051,6 +1055,8 @@ class media:
                     except:
                         return True
                 elif self.type == 'episode':
+                    if not hasattr(self, 'first_aired') or self.first_aired is None:
+                        return False
                     if hasattr(self, "offset_airtime"):
                         for offset in self.offset_airtime:
                             if datetime.datetime.utcnow() > datetime.datetime.strptime(self.first_aired, '%Y-%m-%dT%H:%M:%S.000Z') + datetime.timedelta(hours=float(offset)):
@@ -1188,6 +1194,7 @@ class media:
         # set anime info before episodes are removed
         self.isanime()
         if self.type == 'movie':
+            ui_print(f"processing movie: {self.title} ({self.year})", debug=ui_settings.debug)
             if (len(self.uncollected(library)) > 0 or self.version_missing()) and len(self.versions()) > 0:
                 if self.released() and not self.watched() and not self.downloading():
                     if not hasattr(self, "year") or self.year == None:
@@ -1229,6 +1236,7 @@ class media:
                     if retry:
                         self.watch()
         elif self.type == 'show':
+            ui_print(f"processing show: {self.title} ({self.year})", debug=ui_settings.debug)
             if len(self.versions()) > 0 and self.released() and (not self.collected(library) or self.version_missing()) and not self.watched():
                 self.isanime()
                 self.Seasons = self.uncollected(library)
@@ -1359,11 +1367,12 @@ class media:
                             refresh_ = True
                         if result[1]:
                             retry = True
-                    if not retry and (self.watchlist.autoremove == "both" or self.watchlist.autoremove == "show" or self.hasended()):
+                    if not retry and (self.watchlist.autoremove == "both" or self.watchlist.autoremove == "show"):
                         self.watchlist.remove([], self)
                     toc = time.perf_counter()
                     ui_print('took ' + str(round(toc - tic, 2)) + 's')
         elif self.type == 'season':
+            ui_print(f"processing: {self.parentTitle} {self.title}", debug=ui_settings.debug)
             debrid_downloaded = False
             for release in parentReleases:
                 if regex.match(self.deviation(), release.title, regex.I):
@@ -1497,6 +1506,7 @@ class media:
             if not filemode:
                 for season in self.Seasons:
                     season.version = self.version
+                    season.Releases = self.Releases
                     season.downloaded()
         elif self.type == 'season':
             filemode = False

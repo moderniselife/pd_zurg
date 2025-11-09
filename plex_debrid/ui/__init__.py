@@ -277,7 +277,8 @@ def save(doprint=True):
         if doprint:
             print('Current settings saved!')
             time.sleep(2)
-    except:
+    except Exception as e:
+        print(str(e))
         print()
         print("Error: It looks like plex_debrid can not write your settings into a config file. Make sure you are running the script with write or administator privilege.")
         print()
@@ -354,11 +355,16 @@ def run(cdir = "", smode = False):
 
 def update_available():
     try:
-        response = requests.get('https://raw.githubusercontent.com/itsToggle/plex_debrid/main/ui/ui_settings.py',timeout=0.25)
+        response = requests.get('https://raw.githubusercontent.com/elfhosted/plex_debrid/main/ui/ui_settings.py',timeout=0.25)
         response = response.content.decode()
-        if regex.search("(?<=')([0-9]+\.[0-9]+)(?=')",response):
-            v = regex.search("(?<=')([0-9]+\.[0-9]+)(?=')",response).group()
-            if float(ui_settings.version[0]) < float(v):
+        match = regex.search(r"(?<=')([0-9]+\.[0-9]+)(?=')", response)
+        if match:
+            v = match.group()
+            # Split the version strings into major and minor parts.
+            cur_major, cur_minor = map(int, ui_settings.version[0].split('.'))
+            pub_major, pub_minor = map(int, v.split('.'))
+
+            if pub_major > cur_major or (pub_major == cur_major and pub_minor > cur_minor):
                 return " | [v"+v+"] available!"
             return ""
         return ""
@@ -451,8 +457,6 @@ def threaded(stop):
     while not stop():
         if plex_watchlist.update() or overseerr_requests.update() or trakt_watchlist.update():
             library = content.classes.library()[0]()
-            if len(library) == 0:
-                continue
             watchlists = plex_watchlist + trakt_watchlist + overseerr_requests
             try:
                 watchlists.data.sort(key=lambda s: s.watchlistedAt,reverse=True)
