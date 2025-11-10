@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### Version [2.9.3] - 2025-11-10 🚀
+
+### Added ✨
+
+- Added support for HTTP torrent URLs in RealDebrid
+
+### Fixed 🐛
+
+- Added validation for download URLs including magnet hash length checks and torrent file extension verification
+- Implemented support for HTTP/HTTPS torrent file URLs using the addTorrent endpoint
+- Added informative debug logging for torrent addition with hash/URL details
 
 
 ## Version [2.9.2] - 2024-12-12 🚀
