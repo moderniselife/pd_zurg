@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added support for HTTP torrent URLs in RealDebrid
 - Multi-hop redirect resolution (HEAD-first, up to 5 hops) for HTTP/HTTPS links that resolve to magnets or direct .torrent files
+  - Max hops is configurable via settings (Real Debrid Redirect Max Hops)
 
 ### Fixed 🐛
 

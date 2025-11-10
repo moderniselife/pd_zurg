@@ -412,6 +412,7 @@ settings_list = [
         ),
         setting('Real Debrid API Key', 'Please enter your Real Debrid API Key: ', debrid.services.realdebrid, 'api_key',
                 hidden=True),
+        setting('Real Debrid Redirect Max Hops', 'Please enter the maximum number of HTTP redirects to follow (e.g., 5): ', debrid.services.realdebrid, 'redirect_max_hops', hidden=True),
         setting('All Debrid API Key', 'Please enter your All Debrid API Key: ', debrid.services.alldebrid, 'api_key',
                 hidden=True),
         setting('Premiumize API Key', 'Please enter your Premiumize API Key: ', debrid.services.premiumize, 'api_key',

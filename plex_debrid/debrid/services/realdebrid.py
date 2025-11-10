@@ -24,6 +24,10 @@ errors = [
     [404," wrong parameter (invalid file id(s)) / unknown ressource (invalid id)"],
     [509," bandwidth limit exceeded"]
     ]
+
+# RD HTTP redirect handling
+# Max number of HTTP/HTTPS redirect hops to follow when resolving to magnet/.torrent
+redirect_max_hops = 5
 def setup(cls, new=False):
     from debrid.services import setup
     setup(cls,new)
@@ -160,7 +164,16 @@ def download(element, stream=True, query='', force=False):
                         current_url = download_url
                         hops = 0
                         resolved = False
-                        while hops < 5 and isinstance(current_url, str) and current_url.startswith(('http://', 'https://')) and not resolved:
+                        # Determine max hops from settings if available
+                        try:
+                            import debrid as _db
+                            _configured = getattr(_db.services.realdebrid, 'redirect_max_hops', redirect_max_hops)
+                            max_hops = int(_configured) if str(_configured).strip() != '' else int(redirect_max_hops)
+                        except Exception:
+                            max_hops = int(redirect_max_hops)
+                        if max_hops < 1:
+                            max_hops = 1
+                        while hops < max_hops and isinstance(current_url, str) and current_url.startswith(('http://', 'https://')) and not resolved:
                             hops += 1
                             http_resp = None
                             try:
