@@ -1,4 +1,4 @@
-﻿# Changelog
+# Changelog
 
 All notable changes to this project will be documented in this file.
 
@@ -10,12 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added ✨
 
 - Added support for HTTP torrent URLs in RealDebrid
+- Multi-hop redirect resolution (HEAD-first, up to 5 hops) for HTTP/HTTPS links that resolve to magnets or direct .torrent files
 
 ### Fixed 🐛
 
 - Added validation for download URLs including magnet hash length checks and torrent file extension verification
 - Implemented support for HTTP/HTTPS torrent file URLs using the addTorrent endpoint
 - Added informative debug logging for torrent addition with hash/URL details
+- Handle Prowlarr-style 301/302 redirects to magnet links and feed them to addMagnet
+- Accept torrent responses by Content-Type (application/x-bittorrent) even when the URL lacks a .torrent suffix
+
 
 
 ## Version [2.9.2] - 2024-12-12 🚀

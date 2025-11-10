@@ -153,35 +153,56 @@ def download(element, stream=True, query='', force=False):
                     ui_print(f'[realdebrid]: adding torrent {release.title} with magnet hash {magnet_hash[0]}', debug=ui_settings.debug)
                     response = post('https://api.real-debrid.com/rest/1.0/torrents/addMagnet', {'magnet': download_url})
                 elif download_url.startswith(('http://', 'https://')):
-                    # Handle direct .torrent URLs or redirects to magnet links
                     if download_url.endswith('.torrent'):
                         ui_print(f'[realdebrid]: adding torrent {release.title} from HTTP URL: {download_url}', debug=ui_settings.debug)
                         response = post('https://api.real-debrid.com/rest/1.0/torrents/addTorrent', {'url': download_url})
                     else:
-                        # Attempt to resolve redirect without following unsupported magnet scheme
-                        try:
-                            http_resp = session.get(download_url, allow_redirects=False, timeout=15)
-                        except Exception as e:
-                            ui_print(f"[realdebrid]: failed to resolve redirect for {release.title}: {str(e)}")
-                            continue
-                        location = ''
-                        try:
-                            location = http_resp.headers.get('Location', '')
-                        except Exception:
-                            location = ''
-                        if http_resp.status_code in [301, 302, 303, 307, 308] and isinstance(location, str) and location.startswith('magnet:'):
-                            magnet_url = location
-                            magnet_hash = regex.findall(r'(?<=btih:).*?(?=&|$)', magnet_url, regex.I)
-                            if not magnet_hash or len(magnet_hash[0]) < 20:
-                                ui_print(f'[realdebrid]: redirected magnet hash too short or invalid for {release.title}: {repr(magnet_hash)}')
-                                continue
-                            ui_print(f'[realdebrid]: resolved HTTP redirect to magnet for {release.title}: {magnet_hash[0]}', debug=ui_settings.debug)
-                            response = post('https://api.real-debrid.com/rest/1.0/torrents/addMagnet', {'magnet': magnet_url})
-                        elif str(http_resp.headers.get('Content-Type', '')).lower().find('bittorrent') >= 0:
-                            # Content is a torrent file; let RD fetch by URL
-                            ui_print(f'[realdebrid]: HTTP content-type indicates torrent for {release.title}: {download_url}', debug=ui_settings.debug)
-                            response = post('https://api.real-debrid.com/rest/1.0/torrents/addTorrent', {'url': download_url})
-                        else:
+                        current_url = download_url
+                        hops = 0
+                        resolved = False
+                        while hops < 5 and isinstance(current_url, str) and current_url.startswith(('http://', 'https://')) and not resolved:
+                            hops += 1
+                            http_resp = None
+                            try:
+                                http_resp = session.head(current_url, allow_redirects=False, timeout=15)
+                            except Exception:
+                                http_resp = None
+                            if (http_resp is None) or (hasattr(http_resp, 'status_code') and http_resp.status_code in [405, 501]):
+                                try:
+                                    http_resp = session.get(current_url, allow_redirects=False, timeout=15)
+                                except Exception as e:
+                                    ui_print(f"[realdebrid]: failed to resolve redirect for {release.title}: {str(e)}")
+                                    break
+                            location = str((http_resp.headers.get('Location') if hasattr(http_resp, 'headers') else '') or '')
+                            content_type = str((http_resp.headers.get('Content-Type') if hasattr(http_resp, 'headers') else '') or '').lower()
+                            status = getattr(http_resp, 'status_code', 0)
+                            if status in [301, 302, 303, 307, 308] and location:
+                                if location.startswith('magnet:'):
+                                    magnet_url = location
+                                    magnet_hash = regex.findall(r'(?<=btih:).*?(?=&|$)', magnet_url, regex.I)
+                                    if not magnet_hash or len(magnet_hash[0]) < 20:
+                                        ui_print(f'[realdebrid]: redirected magnet hash too short or invalid for {release.title}: {repr(magnet_hash)}')
+                                        break
+                                    ui_print(f'[realdebrid]: resolved HTTP redirect to magnet for {release.title}: {magnet_hash[0]}', debug=ui_settings.debug)
+                                    response = post('https://api.real-debrid.com/rest/1.0/torrents/addMagnet', {'magnet': magnet_url})
+                                    resolved = True
+                                    break
+                                else:
+                                    current_url = location
+                                    if current_url.endswith('.torrent'):
+                                        ui_print(f'[realdebrid]: adding torrent {release.title} from HTTP URL: {current_url}', debug=ui_settings.debug)
+                                        response = post('https://api.real-debrid.com/rest/1.0/torrents/addTorrent', {'url': current_url})
+                                        resolved = True
+                                        break
+                                    continue
+                            else:
+                                if ('bittorrent' in content_type) or current_url.endswith('.torrent'):
+                                    ui_print(f'[realdebrid]: HTTP content-type indicates torrent for {release.title}: {current_url}', debug=ui_settings.debug)
+                                    response = post('https://api.real-debrid.com/rest/1.0/torrents/addTorrent', {'url': current_url})
+                                    resolved = True
+                                    break
+                                break
+                        if not resolved:
                             ui_print(f'[realdebrid]: HTTP URL did not resolve to .torrent or magnet for {release.title}: {download_url}')
                             continue
                 else:
