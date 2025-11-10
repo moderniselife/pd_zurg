@@ -137,7 +137,31 @@ def download(element, stream=True, query='', force=False):
     for release in cached[:]:
         try:  # if release matches query
             if regex.match(query, release.title,regex.I) or force:
-                response = post('https://api.real-debrid.com/rest/1.0/torrents/addMagnet', {'magnet': release.download[0]})
+                # Validate download URL before sending to API
+                download_url = release.download[0] if len(release.download) > 0 else None
+                if not download_url:
+                    ui_print(f'[realdebrid]: missing download URL for {release.title}')
+                    continue
+                
+                # Check if it's a magnet URI or HTTP/HTTPS torrent file
+                if download_url.startswith('magnet:?xt=urn:btih:'):
+                    # Validate magnet hash
+                    magnet_hash = regex.findall(r'(?<=btih:).*?(?=&|$)', download_url, regex.I)
+                    if not magnet_hash or len(magnet_hash[0]) < 20:
+                        ui_print(f'[realdebrid]: magnet hash too short or invalid for {release.title}: {repr(magnet_hash)}')
+                        continue
+                    ui_print(f'[realdebrid]: adding torrent {release.title} with magnet hash {magnet_hash[0]}', debug=ui_settings.debug)
+                    response = post('https://api.real-debrid.com/rest/1.0/torrents/addMagnet', {'magnet': download_url})
+                elif download_url.startswith(('http://', 'https://')):
+                    # Validate it's a torrent file URL
+                    if not download_url.endswith('.torrent'):
+                        ui_print(f'[realdebrid]: HTTP URL does not point to .torrent file for {release.title}: {download_url}')
+                        continue
+                    ui_print(f'[realdebrid]: adding torrent {release.title} from HTTP URL: {download_url}', debug=ui_settings.debug)
+                    response = post('https://api.real-debrid.com/rest/1.0/torrents/addTorrent', {'url': download_url})
+                else:
+                    ui_print(f'[realdebrid]: unsupported download URL format for {release.title}: {repr(download_url)}')
+                    continue
                 if hasattr(response, 'error') and response.error == 'infringing_file':
                     ui_print(f'[realdebrid]: torrent {release.title} marked as infringing... looking for another release.')
                     continue
